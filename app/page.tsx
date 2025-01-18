@@ -54,49 +54,40 @@ export default function Home() {
   // Polling logic for task results
   useEffect(() => {
     if (!taskID) return;
-
-    let intervalId: NodeJS.Timeout;
-
-    async function getResult() {
+  
+    const intervalId: NodeJS.Timeout = setInterval(async () => {
       try {
         const res = await fetch(`https://api.greencloud.dev/gc/${taskID}/result`);
         const responseMessage = await res.text();
-
+  
         if (res.status === 200) {
-          // Successful result
           setPolling(false);
           setResponse({
             status: res.status,
             message: responseMessage,
           });
-          clearInterval(intervalId);
+          clearInterval(intervalId); // Stop the interval on success
         } else if (res.status === 404) {
-          // Continue polling if still in progress
           console.log("Polling: Result not ready yet...");
         } else if (res.status === 500) {
-          // Stop polling and handle irretrievable error
           setPolling(false);
           setError(`Server Error (500): ${responseMessage}`);
-          clearInterval(intervalId);
+          clearInterval(intervalId); // Stop the interval on server error
         } else if (res.status === 408) {
-          // Stop polling and handle timeout error
           setPolling(false);
           setError(`Request Timeout (408): ${responseMessage}`);
-          clearInterval(intervalId);
+          clearInterval(intervalId); // Stop the interval on timeout
         } else {
-          // Handle unexpected status codes
           throw new Error(`Unexpected status during polling: ${res.status}`);
         }
       } catch (err) {
         console.error("Polling error:", err);
         setError("An error occurred during polling");
         setPolling(false);
-        clearInterval(intervalId);
+        clearInterval(intervalId); // Stop the interval on error
       }
-    }
-
-    intervalId = setInterval(getResult, 1500); // Poll every 1.5 seconds
-
+    }, 1500); // Poll every 1.5 seconds
+  
     return () => clearInterval(intervalId); // Cleanup interval on unmount or taskID change
   }, [taskID]);
 
