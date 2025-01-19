@@ -7,8 +7,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
   const [taskID, setTaskID] = useState<string | null>(null);
-  const [response, setResponse] = useState<
-    { Name: string; Company: string; Phone: string; "Last Contacted": string }[] | null
+  const [data, setData] = useState<
+    { name: string; address: string; phone: string; email: string }[] | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -16,10 +16,9 @@ export default function Home() {
   const callApi = async () => {
     setLoading(true);
     setError(null);
-    setResponse(null);
+    setData(null);
 
     try {
-      // Make the initial POST request
       const res = await fetch("https://api.greencloud.dev/gc/678c008b428b9003e155c812", {
         method: "POST",
         headers: {
@@ -34,11 +33,10 @@ export default function Home() {
         throw new Error(`Initial request failed with status: ${res.status}`);
       }
 
-      const data = await res.json();
+      const responseData = await res.json();
 
-      // Extract and set the task ID for polling
-      if (data.id) {
-        setTaskID(data.id);
+      if (responseData.id) {
+        setTaskID(responseData.id);
         setPolling(true); // Start polling
       } else {
         throw new Error("Task ID not provided in the response");
@@ -54,7 +52,6 @@ export default function Home() {
     }
   };
 
-  // Polling logic for task results
   useEffect(() => {
     if (!taskID) return;
 
@@ -62,17 +59,25 @@ export default function Home() {
       try {
         const res = await fetch(`https://api.greencloud.dev/gc/${taskID}/result`);
         const contentType = res.headers.get("content-type");
-
-        let responseMessage;
-        if (contentType && contentType.includes("application/json")) {
+    
+        let responseMessage: string | Record<string, unknown>;
+        if (contentType?.includes("application/json")) {
           responseMessage = await res.json();
         } else {
           responseMessage = await res.text();
         }
-
+    
         if (res.status === 200) {
           setPolling(false);
-          setResponse(responseMessage); // Store the API response as table data
+        
+          // Check if the responseMessage is an array of objects with the expected structure
+          if (Array.isArray(responseMessage)) {
+            setData(responseMessage as { name: string; address: string; phone: string; email: string }[]);
+          } else {
+            console.error("Unexpected response format:", responseMessage);
+            setError("Unexpected response format received from API.");
+          }
+        
           clearInterval(intervalId);
         } else if (res.status === 404) {
           console.log("Polling: Result not ready yet...");
@@ -94,7 +99,7 @@ export default function Home() {
     return () => clearInterval(intervalId); // Cleanup interval on unmount or taskID change
   }, [taskID]);
 
-  const filteredData = response?.filter((row) =>
+  const filteredData = data?.filter((row) =>
     Object.values(row).some((value) =>
       value.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -115,7 +120,7 @@ export default function Home() {
             {loading ? "Initializing..." : polling ? "Processing..." : "Click to start processing..."}
           </button>
         </div>
-        {response && (
+        {data && (
           <input
             type="text"
             className="mt-4 w-full max-w-md p-2 border rounded"
@@ -127,26 +132,29 @@ export default function Home() {
       </div>
 
       {/* Table Section */}
-      {response && (
+      {data && (
         <div className="overflow-x-auto">
           <table className="table-auto w-full max-w-5xl mx-auto border-collapse border border-gray-300">
             <thead>
               <tr className="bg-gray-200">
                 <th className="border border-gray-300 px-4 py-2">Name</th>
-                <th className="border border-gray-300 px-4 py-2">Company</th>
+                <th className="border border-gray-300 px-4 py-2">Address</th>
                 <th className="border border-gray-300 px-4 py-2">Phone</th>
-                <th className="border border-gray-300 px-4 py-2">Last Contacted</th>
+                <th className="border border-gray-300 px-4 py-2">Email</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData?.map((row, index) => (
-                <tr key={index} className="hover:bg-gray-100">
-                  <td className="border border-gray-300 px-4 py-2">{row.Name}</td>
-                  <td className="border border-gray-300 px-4 py-2">{row.Company}</td>
-                  <td className="border border-gray-300 px-4 py-2">{row.Phone}</td>
-                  <td className="border border-gray-300 px-4 py-2">{row["Last Contacted"]}</td>
-                </tr>
-              ))}
+              {filteredData?.map((row) => {
+                const uniqueKey = `${row.name}-${row.email}`; // Generate a unique key for each row
+                return (
+                  <tr key={uniqueKey} className="hover:bg-gray-100">
+                    <td className="border border-gray-300 px-4 py-2">{row.name || "N/A"}</td>
+                    <td className="border border-gray-300 px-4 py-2 whitespace-pre-line">{row.address || "N/A"}</td>
+                    <td className="border border-gray-300 px-4 py-2">{row.phone || "N/A"}</td>
+                    <td className="border border-gray-300 px-4 py-2">{row.email || "N/A"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
