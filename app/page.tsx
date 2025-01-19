@@ -7,8 +7,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
   const [taskID, setTaskID] = useState<string | null>(null);
-  const [response, setResponse] = useState<{ status: number; message: string } | null>(null);
+  const [response, setResponse] = useState<
+    { Name: string; Company: string; Phone: string; "Last Contacted": string }[] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const callApi = async () => {
     setLoading(true);
@@ -54,29 +57,29 @@ export default function Home() {
   // Polling logic for task results
   useEffect(() => {
     if (!taskID) return;
-  
+
     const intervalId: NodeJS.Timeout = setInterval(async () => {
       try {
         const res = await fetch(`https://api.greencloud.dev/gc/${taskID}/result`);
-        const responseMessage = await res.text();
-  
+        const contentType = res.headers.get("content-type");
+
+        let responseMessage;
+        if (contentType && contentType.includes("application/json")) {
+          responseMessage = await res.json();
+        } else {
+          responseMessage = await res.text();
+        }
+
         if (res.status === 200) {
           setPolling(false);
-          setResponse({
-            status: res.status,
-            message: responseMessage,
-          });
-          clearInterval(intervalId); // Stop the interval on success
+          setResponse(responseMessage); // Store the API response as table data
+          clearInterval(intervalId);
         } else if (res.status === 404) {
           console.log("Polling: Result not ready yet...");
-        } else if (res.status === 500) {
+        } else if (res.status === 500 || res.status === 408) {
           setPolling(false);
-          setError(`Server Error (500): ${responseMessage}`);
-          clearInterval(intervalId); // Stop the interval on server error
-        } else if (res.status === 408) {
-          setPolling(false);
-          setError(`Request Timeout (408): ${responseMessage}`);
-          clearInterval(intervalId); // Stop the interval on timeout
+          setError(`Error (${res.status}): ${typeof responseMessage === "string" ? responseMessage : JSON.stringify(responseMessage)}`);
+          clearInterval(intervalId);
         } else {
           throw new Error(`Unexpected status during polling: ${res.status}`);
         }
@@ -84,68 +87,80 @@ export default function Home() {
         console.error("Polling error:", err);
         setError("An error occurred during polling");
         setPolling(false);
-        clearInterval(intervalId); // Stop the interval on error
+        clearInterval(intervalId);
       }
-    }, 1500); // Poll every 1.5 seconds
-  
+    }, 1500);
+
     return () => clearInterval(intervalId); // Cleanup interval on unmount or taskID change
   }, [taskID]);
 
+  const filteredData = response?.filter((row) =>
+    Object.values(row).some((value) =>
+      value.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
   return (
-    <div className="relative grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      {/* Logo and Title in top-left corner */}
-      <div className="absolute top-4 left-4 flex items-center gap-4">
-        <Image
-          src="/proteclogo.jpg"
-          alt="Protech Logo"
-          width={50}
-          height={50}
-        />
-        <h1 className="text-xl font-bold">ProTech Lead Processor</h1>
+    <div className="min-h-screen p-8 pb-20 font-[family-name:var(--font-geist-sans)]">
+      {/* Top Section */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="flex items-center justify-between w-full max-w-5xl">
+          <Image src="/proteclogo.jpg" alt="Protech Logo" width={50} height={50} />
+          <button
+            type="button"
+            onClick={callApi}
+            className="rounded-full border border-solid border-transparent transition-colors bg-green-600 text-white hover:bg-green-700 text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
+            disabled={loading || polling}
+          >
+            {loading ? "Initializing..." : polling ? "Processing..." : "Click to start processing..."}
+          </button>
+        </div>
+        {response && (
+          <input
+            type="text"
+            className="mt-4 w-full max-w-md p-2 border rounded"
+            placeholder="Search the table..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        )}
       </div>
 
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <button
-          type="button"
-          onClick={callApi}
-          className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-green-600 text-white gap-2 hover:bg-green-700 text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-          disabled={loading || polling}
-        >
-          {loading ? "Initializing..." : polling ? "Processing..." : "Start Processing..."}
-        </button>
+      {/* Table Section */}
+      {response && (
+        <div className="overflow-x-auto">
+          <table className="table-auto w-full max-w-5xl mx-auto border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border border-gray-300 px-4 py-2">Name</th>
+                <th className="border border-gray-300 px-4 py-2">Company</th>
+                <th className="border border-gray-300 px-4 py-2">Phone</th>
+                <th className="border border-gray-300 px-4 py-2">Last Contacted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData?.map((row, index) => (
+                <tr key={index} className="hover:bg-gray-100">
+                  <td className="border border-gray-300 px-4 py-2">{row.Name}</td>
+                  <td className="border border-gray-300 px-4 py-2">{row.Company}</td>
+                  <td className="border border-gray-300 px-4 py-2">{row.Phone}</td>
+                  <td className="border border-gray-300 px-4 py-2">{row["Last Contacted"]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-        {loading && (
-          <div aria-live="polite" className="flex items-center justify-center mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900" />
-            <p className="ml-2 text-gray-600">Initializing request...</p>
-          </div>
-        )}
-
-        {polling && (
-          <div aria-live="polite" className="flex items-center justify-center mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500" />
-            <p className="ml-2 text-green-600">Polling for result...</p>
-          </div>
-        )}
-
-        {response && (
-          <div className="mt-4 text-center">
-            <h2 className="text-lg font-semibold">API Result:</h2>
-            <pre className="bg-gray-100 text-sm p-4 rounded shadow-md">
-              {JSON.stringify(response, null, 2)}
-            </pre>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 text-center text-red-600">
-            <h2>Error</h2>
-            <pre className="bg-red-100 text-sm p-4 rounded shadow-md">
-              {error}
-            </pre>
-          </div>
-        )}
-      </main>
+      {/* Error Section */}
+      {error && (
+        <div className="mt-4 text-center text-red-600">
+          <h2>Error</h2>
+          <pre className="bg-red-100 text-sm p-4 rounded shadow-md">
+            {error}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
