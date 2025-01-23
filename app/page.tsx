@@ -8,11 +8,11 @@ export default function Home() {
   const [polling, setPolling] = useState(false);
   const [taskID, setTaskID] = useState<string | null>(null);
   const [data, setData] = useState<{
-    extracted_contacts: { name: string; address: string; phone: string; email: string }[];
+    extracted_contacts: { name: string; address: string; phone: string; email: string, filename: string }[];
     filtered_out: {
-      duplicates: { name: string; address: string; phone: string; email: string }[];
-      empty_records: { name: string; address: string; phone: string; email: string }[];
-      failed_extractions: { file_name: string; error: string }[];
+      duplicates: { name: string; address: string; phone: string; email: string, filename: string }[];
+      empty_records: { name: string; address: string; phone: string; email: string, filename: string }[];
+      failed_extractions: { file_name: string; error: string, filename: string }[];
     };
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function Home() {
             <tr className="bg-black text-white">
             {headers.map((header, index) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-                  <th key={index} className="border border-gray-300 px-4 py-2">
+                  <th key={index} className="border border-gray-300 px-2 py-1">
                     {header}
                   </th>
                 ))}
@@ -69,7 +69,7 @@ export default function Home() {
                  <tr key={rowIndex}>
                   {headers.map((header, colIndex) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-                    <td key={colIndex} className="border border-gray-300 px-4 py-2">
+                    <td key={colIndex} className="border border-gray-300 px-2 py-1">
                       {row[header.toLowerCase()] || "N/A"}
                     </td>
                   ))}
@@ -160,7 +160,7 @@ export default function Home() {
     return () => clearInterval(intervalId); // Cleanup interval on component unmount or taskID change
   }, [taskID]);
 
-  const filteredData = (array: { name: string; address: string; phone: string; email: string }[] | undefined) =>
+  const filteredData = (array: { name: string; address: string; phone: string; email: string; filename: string }[] | undefined) =>
     array?.filter((row) =>
       Object.values(row).some((value) =>
         value.toLowerCase().includes(searchTerm.toLowerCase())
@@ -228,7 +228,7 @@ export default function Home() {
       {data && (
         <input
           type="text"
-          className="mb-8 w-full max-w-md p-2 border rounded"
+          className="mb-8 w-full max-w-md p-2 border rounded text-black"
           placeholder="Search the tables..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -240,19 +240,19 @@ export default function Home() {
         <>
           {renderTable(
             filteredData(data.extracted_contacts),
-            ["Name", "Address", "Phone", "Email"],
+            ["Name", "Address", "Phone", "Email", "Filename"],
             "Extracted Contacts",
             "extracted_contacts"
           )}
           {renderTable(
             filteredData(data.filtered_out.duplicates),
-            ["Name", "Address", "Phone", "Email"],
+            ["Name", "Address", "Phone", "Email", "Filename"],
             "Duplicates",
             "duplicates"
           )}
           {renderTable(
             filteredData(data.filtered_out.empty_records),
-            ["Name", "Address", "Phone", "Email"],
+            ["Name", "Address", "Phone", "Email", "Filename"],
             "Empty Records",
             "empty_records"
           )}
