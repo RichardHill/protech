@@ -25,7 +25,7 @@ export default function Home() {
   });
 
   // Helper function to toggle collapsible sections
-  const toggleSection = (section: string) => {
+  const toggleSection = (section: keyof typeof collapsedSections) => {
     setCollapsedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
@@ -37,11 +37,12 @@ export default function Home() {
     data: { [key: string]: string | undefined }[] | undefined,
     headers: string[],
     title: string,
-    sectionKey: string
+    sectionKey: keyof typeof collapsedSections // Type sectionKey to match collapsedSections keys
   ) => (
     <div className="mb-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">{title}</h2>
+        {/* biome-ignore lint/a11y/useButtonType: <explanation> */}
         <button
           className="text-sm text-blue-500 underline"
           onClick={() => toggleSection(sectionKey)}
@@ -55,6 +56,7 @@ export default function Home() {
             <thead>
             <tr className="bg-black text-white">
             {headers.map((header, index) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
                   <th key={index} className="border border-gray-300 px-4 py-2">
                     {header}
                   </th>
@@ -63,8 +65,10 @@ export default function Home() {
             </thead>
             <tbody>
               {data?.map((row, rowIndex) => (
-                <tr key={rowIndex}>
+                // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+                 <tr key={rowIndex}>
                   {headers.map((header, colIndex) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
                     <td key={colIndex} className="border border-gray-300 px-4 py-2">
                       {row[header.toLowerCase()] || "N/A"}
                     </td>
@@ -121,7 +125,8 @@ export default function Home() {
         const res = await fetch(`https://api.greencloud.dev/gc/${taskID}/result`);
         const contentType = res.headers.get("content-type");
   
-        let responseData;
+        // biome-ignore lint/suspicious/noImplicitAnyLet: <explanation>
+          let responseData;
         if (contentType?.includes("application/json")) {
           responseData = await res.json();
         } else {
