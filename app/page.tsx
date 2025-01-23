@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { extractEtag } from "next/dist/server/image-optimizer";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
